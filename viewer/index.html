@@ -4,63 +4,110 @@
 <meta charset="UTF-8">
 <title>AI Chess Match: Gemini vs Claude</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Noto+Sans+KR:wght@400;600&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #1a1a2e; color: #eee; font-family: -apple-system, system-ui, sans-serif; display: flex; justify-content: center; padding: 20px; min-height: 100vh; }
+  body { background: #0a0a1a; color: #eee; font-family: 'Noto Sans KR', sans-serif; display: flex; justify-content: center; padding: 20px; min-height: 100vh; overflow-x: hidden; }
   .container { max-width: 720px; width: 100%; }
-  h1 { text-align: center; font-size: 1.4em; margin-bottom: 4px; color: #e94560; }
-  .subtitle { text-align: center; font-size: 0.85em; color: #888; margin-bottom: 16px; }
-  .status-bar { display: flex; justify-content: space-between; align-items: center; background: #16213e; border-radius: 8px; padding: 10px 16px; margin-bottom: 12px; }
-  .player { display: flex; align-items: center; gap: 8px; }
-  .player-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2em; }
-  .white-icon { background: #f0f0f0; color: #333; }
-  .black-icon { background: #333; color: #f0f0f0; }
-  .player-name { font-weight: 600; font-size: 0.95em; }
-  .player-label { font-size: 0.75em; color: #888; }
-  .active { box-shadow: 0 0 12px #e94560; }
-  .move-count { background: #e94560; color: white; border-radius: 20px; padding: 4px 14px; font-weight: 700; font-size: 0.9em; }
-  .board-wrap { display: flex; justify-content: center; margin-bottom: 12px; }
-  .board { display: grid; grid-template-columns: repeat(8, 60px); grid-template-rows: repeat(8, 60px); border-radius: 4px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-  .square { display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; font-size: 40px; cursor: default; position: relative; }
+
+  /* 배경 파티클 */
+  .bg-glow { position: fixed; top: 50%; left: 50%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(233,69,96,0.08) 0%, transparent 70%); transform: translate(-50%, -50%); pointer-events: none; z-index: 0; }
+
+  /* 헤더 */
+  h1 { text-align: center; font-family: 'Orbitron', sans-serif; font-size: 1.3em; margin-bottom: 4px; color: #e94560; text-shadow: 0 0 20px rgba(233,69,96,0.5); letter-spacing: 2px; position: relative; z-index: 1; }
+  .subtitle { text-align: center; font-size: 0.8em; color: #666; margin-bottom: 16px; position: relative; z-index: 1; }
+
+  /* 플레이어 바 */
+  .status-bar { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #16213e, #1a1a3e); border: 1px solid #2a2a4a; border-radius: 12px; padding: 12px 20px; margin-bottom: 14px; position: relative; z-index: 1; }
+  .player { display: flex; align-items: center; gap: 10px; }
+  .player-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3em; transition: all 0.5s ease; }
+  .white-icon { background: linear-gradient(135deg, #f0f0f0, #ccc); color: #333; }
+  .black-icon { background: linear-gradient(135deg, #444, #222); color: #f0f0f0; }
+  .player-name { font-weight: 600; font-size: 1em; }
+  .player-label { font-size: 0.7em; color: #888; }
+  .active { box-shadow: 0 0 20px rgba(233,69,96,0.7), 0 0 40px rgba(233,69,96,0.3); animation: glow-pulse 2s ease-in-out infinite; }
+  @keyframes glow-pulse { 0%,100% { box-shadow: 0 0 20px rgba(233,69,96,0.7); } 50% { box-shadow: 0 0 30px rgba(233,69,96,0.9), 0 0 60px rgba(233,69,96,0.4); } }
+  .vs { font-family: 'Orbitron', sans-serif; color: #e94560; font-size: 0.9em; font-weight: 700; }
+  .move-count { background: linear-gradient(135deg, #e94560, #c0392b); color: white; border-radius: 20px; padding: 6px 16px; font-weight: 700; font-size: 0.9em; font-family: 'Orbitron', sans-serif; box-shadow: 0 2px 10px rgba(233,69,96,0.4); }
+
+  /* 체스판 */
+  .board-wrap { display: flex; justify-content: center; margin-bottom: 14px; position: relative; z-index: 1; }
+  .board-container { position: relative; }
+  .board { display: grid; grid-template-columns: repeat(8, 60px); grid-template-rows: repeat(8, 60px); border-radius: 6px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 60px rgba(233,69,96,0.1); border: 2px solid #2a2a4a; }
+  .square { display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; font-size: 38px; cursor: default; position: relative; transition: background-color 0.3s ease; }
   .light { background: #f0d9b5; }
   .dark { background: #b58863; }
-  .last-move { box-shadow: inset 0 0 0 3px #e94560aa; }
-  .piece { filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3)); }
-  .rank-label { position: absolute; top: 2px; left: 4px; font-size: 10px; color: #999; font-weight: 600; }
-  .file-label { position: absolute; bottom: 1px; right: 4px; font-size: 10px; color: #999; font-weight: 600; }
-  .info-panel { background: #16213e; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
-  .last-move-info { font-size: 0.9em; margin-bottom: 6px; }
+  .last-from { background: rgba(233,69,96,0.35) !important; }
+  .last-to { background: rgba(233,69,96,0.5) !important; animation: move-flash 0.6s ease-out; }
+  @keyframes move-flash { 0% { background: rgba(255,255,100,0.8) !important; } 100% {} }
+  .piece { filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.4)); transition: transform 0.3s ease, opacity 0.3s ease; }
+  .piece-enter { animation: piece-drop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes piece-drop { 0% { transform: scale(0) rotate(-30deg); opacity: 0; } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
+  .capture-effect { animation: capture-boom 0.5s ease-out; }
+  @keyframes capture-boom { 0% { transform: scale(1.5); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
+  .check-square { animation: check-flash 1s ease-in-out infinite; }
+  @keyframes check-flash { 0%,100% { box-shadow: inset 0 0 15px rgba(255,0,0,0.6); } 50% { box-shadow: inset 0 0 25px rgba(255,0,0,0.9); } }
+  .rank-label { position: absolute; top: 2px; left: 4px; font-size: 10px; color: #999; font-weight: 700; pointer-events: none; }
+  .file-label { position: absolute; bottom: 1px; right: 4px; font-size: 10px; color: #999; font-weight: 700; pointer-events: none; }
+
+  /* 잡힌 기물 */
+  .captured { display: flex; justify-content: space-between; padding: 4px 8px; font-size: 20px; margin-bottom: 8px; }
+  .captured-white, .captured-black { display: flex; gap: 2px; flex-wrap: wrap; }
+
+  /* 정보 패널 */
+  .info-panel { background: linear-gradient(135deg, #16213e, #1a1a3e); border: 1px solid #2a2a4a; border-radius: 10px; padding: 14px 18px; margin-bottom: 12px; position: relative; z-index: 1; }
+  .last-move-info { font-size: 0.95em; margin-bottom: 4px; }
   .last-move-info strong { color: #e94560; }
-  .comment { font-size: 0.85em; color: #aaa; font-style: italic; }
-  .moves-log { background: #0f3460; border-radius: 8px; padding: 12px 16px; max-height: 180px; overflow-y: auto; font-family: 'SF Mono', monospace; font-size: 0.82em; line-height: 1.8; }
-  .moves-log .move-num { color: #888; }
-  .moves-log .white-move { color: #f0d9b5; }
-  .moves-log .black-move { color: #90caf9; }
-  .moves-log .random-move { color: #e94560; }
-  .game-over { text-align: center; background: #e94560; border-radius: 8px; padding: 16px; font-size: 1.2em; font-weight: 700; margin-bottom: 12px; }
-  .live-dot { display: inline-block; width: 8px; height: 8px; background: #4caf50; border-radius: 50%; margin-right: 6px; animation: pulse 1.5s infinite; }
-  .live-dot.off { background: #666; animation: none; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .comment { font-size: 0.85em; color: #aaa; font-style: italic; line-height: 1.4; }
   .thinking { color: #ffd700; font-size: 0.85em; }
+  .thinking-dots::after { content: ''; animation: dots 1.5s steps(4) infinite; }
+  @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+
+  /* 기보 */
+  .moves-log { background: #0a0f2e; border: 1px solid #1a2a4a; border-radius: 10px; padding: 14px 18px; max-height: 160px; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82em; line-height: 2; position: relative; z-index: 1; }
+  .moves-log::-webkit-scrollbar { width: 4px; }
+  .moves-log::-webkit-scrollbar-thumb { background: #e94560; border-radius: 2px; }
+  .moves-log .move-num { color: #555; }
+  .moves-log .white-move { color: #f0d9b5; cursor: default; transition: color 0.2s; }
+  .moves-log .white-move:hover { color: #fff; }
+  .moves-log .black-move { color: #90caf9; cursor: default; transition: color 0.2s; }
+  .moves-log .black-move:hover { color: #fff; }
+  .moves-log .random-move { color: #e94560; text-decoration: underline dotted; }
+
+  /* 게임 오버 */
+  .game-over { text-align: center; background: linear-gradient(135deg, #e94560, #c0392b); border-radius: 12px; padding: 20px; font-size: 1.3em; font-weight: 700; font-family: 'Orbitron', sans-serif; margin-bottom: 14px; box-shadow: 0 4px 20px rgba(233,69,96,0.5); animation: game-over-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); letter-spacing: 1px; }
+  @keyframes game-over-in { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+  .live-dot { display: inline-block; width: 8px; height: 8px; background: #4caf50; border-radius: 50%; margin-right: 6px; animation: pulse 1.5s infinite; box-shadow: 0 0 8px rgba(76,175,80,0.6); }
+  .live-dot.off { background: #666; animation: none; box-shadow: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 </style>
 </head>
 <body>
+<div class="bg-glow"></div>
 <div class="container">
-  <h1>♟ AI Chess Match</h1>
+  <h1>♟ AI CHESS MATCH</h1>
   <p class="subtitle"><span class="live-dot" id="liveDot"></span><span id="liveText">연결 중...</span></p>
 
   <div class="status-bar">
     <div class="player">
       <div class="player-icon white-icon" id="whiteIcon">♙</div>
-      <div><div class="player-name">Gemini</div><div class="player-label">White</div></div>
+      <div><div class="player-name">Gemini</div><div class="player-label">WHITE</div></div>
     </div>
-    <div class="move-count" id="moveCount">0수</div>
+    <div>
+      <div class="move-count" id="moveCount">0</div>
+    </div>
     <div class="player">
-      <div><div class="player-name" style="text-align:right">Claude</div><div class="player-label" style="text-align:right">Black</div></div>
+      <div><div class="player-name" style="text-align:right">Claude</div><div class="player-label" style="text-align:right">BLACK</div></div>
       <div class="player-icon black-icon" id="blackIcon">♟</div>
     </div>
   </div>
 
-  <div class="board-wrap"><div class="board" id="board"></div></div>
+  <div class="captured" id="capturedPieces">
+    <div class="captured-white" id="capturedWhite"></div>
+    <div class="captured-black" id="capturedBlack"></div>
+  </div>
+
+  <div class="board-wrap"><div class="board-container"><div class="board" id="board"></div></div></div>
 
   <div class="info-panel" id="infoPanel">
     <div class="last-move-info" id="lastMoveInfo">대국 시작 대기 중...</div>
@@ -77,8 +124,11 @@ const PIECES = {
   'R':'♜','N':'♞','B':'♝','Q':'♛','K':'♚','P':'♟',
   'r':'♖','n':'♘','b':'♗','q':'♕','k':'♔','p':'♙'
 };
+const PIECE_VALUES = {'p':1,'n':3,'b':3,'r':5,'q':9,'k':0,'P':1,'N':3,'B':3,'R':5,'Q':9,'K':0};
 const FILES = 'abcdefgh';
-let prevState = null;
+const INIT_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+let prevFen = INIT_FEN;
+let prevMoveCount = 0;
 
 function parseFEN(fen) {
   const rows = fen.split(' ')[0].split('/');
@@ -94,10 +144,41 @@ function parseFEN(fen) {
   return board;
 }
 
-function renderBoard(fen, lastMoveUci) {
+function getCaptured(fen) {
+  const init = {P:8,N:2,B:2,R:2,Q:1,K:1,p:8,n:2,b:2,r:2,q:1,k:1};
+  const curr = {};
+  const boardPart = fen.split(' ')[0];
+  for (const c of boardPart) {
+    if (c.match(/[pnbrqkPNBRQK]/)) curr[c] = (curr[c]||0) + 1;
+  }
+  const capturedByWhite = []; // black pieces captured
+  const capturedByBlack = []; // white pieces captured
+  for (const [p, count] of Object.entries(init)) {
+    const diff = count - (curr[p]||0);
+    for (let i = 0; i < diff; i++) {
+      if (p === p.toLowerCase()) capturedByWhite.push(PIECES[p]);
+      else capturedByBlack.push(PIECES[p]);
+    }
+  }
+  return { capturedByWhite, capturedByBlack };
+}
+
+function renderCaptured(fen) {
+  const { capturedByWhite, capturedByBlack } = getCaptured(fen);
+  document.getElementById('capturedWhite').textContent = capturedByWhite.join(' ');
+  document.getElementById('capturedBlack').textContent = capturedByBlack.join(' ');
+}
+
+function isInCheck(fen) {
+  // 간단 체크 감지: FEN에서 턴 정보로 킹 위치 파악 (실제로는 서버에서 해야 하지만 시각 효과용)
+  return false; // state.json에서 제공하면 개선 가능
+}
+
+function renderBoard(fen, lastMoveUci, isNewMove) {
   const board = parseFEN(fen);
   const el = document.getElementById('board');
   el.innerHTML = '';
+  const prevBoard = parseFEN(prevFen);
 
   let fromSq = null, toSq = null;
   if (lastMoveUci && lastMoveUci.length >= 4) {
@@ -112,18 +193,21 @@ function renderBoard(fen, lastMoveUci) {
       sq.className = 'square ' + (isLight ? 'light' : 'dark');
 
       const sqName = FILES[file] + (8 - rank);
-      if (sqName === fromSq || sqName === toSq) sq.classList.add('last-move');
+      if (sqName === fromSq) sq.classList.add('last-from');
+      if (sqName === toSq) sq.classList.add('last-to');
 
       if (file === 0) {
         const rl = document.createElement('span');
         rl.className = 'rank-label';
         rl.textContent = 8 - rank;
+        rl.style.color = isLight ? '#b58863' : '#f0d9b5';
         sq.appendChild(rl);
       }
       if (rank === 7) {
         const fl = document.createElement('span');
         fl.className = 'file-label';
         fl.textContent = FILES[file];
+        fl.style.color = isLight ? '#b58863' : '#f0d9b5';
         sq.appendChild(fl);
       }
 
@@ -132,11 +216,21 @@ function renderBoard(fen, lastMoveUci) {
         const p = document.createElement('span');
         p.className = 'piece';
         p.textContent = PIECES[piece] || piece;
+        // 새 수에서 도착 칸의 기물 애니메이션
+        if (isNewMove && sqName === toSq) {
+          const prevPiece = prevBoard[rank] ? prevBoard[rank][file] : null;
+          if (prevPiece && prevPiece !== piece) {
+            p.classList.add('capture-effect');
+          } else {
+            p.classList.add('piece-enter');
+          }
+        }
         sq.appendChild(p);
       }
       el.appendChild(sq);
     }
   }
+  renderCaptured(fen);
 }
 
 function renderMoves(moves) {
@@ -145,9 +239,10 @@ function renderMoves(moves) {
   let html = '';
   for (let i = 0; i < moves.length; i++) {
     const m = moves[i];
-    if (i % 2 === 0) html += `<span class="move-num">${Math.floor(i/2)+1}.</span> `;
+    if (i % 2 === 0) html += `<span class="move-num">${Math.floor(i/2)+1}.</span>`;
     const cls = m.random ? 'random-move' : (i % 2 === 0 ? 'white-move' : 'black-move');
-    html += `<span class="${cls}">${m.uci}</span> `;
+    const title = m.comment ? m.comment : '';
+    html += `<span class="${cls}" title="${title}">${m.uci}</span> `;
   }
   el.innerHTML = html;
   el.scrollTop = el.scrollHeight;
@@ -162,7 +257,7 @@ async function poll() {
     document.getElementById('liveDot').className = 'live-dot';
     document.getElementById('liveText').textContent = state.game_over ? '대국 종료' : '실시간 관전 중';
 
-    document.getElementById('moveCount').textContent = state.move_number + '수';
+    document.getElementById('moveCount').textContent = state.move_number;
 
     const whiteActive = state.turn === 'white' && !state.game_over;
     const blackActive = state.turn === 'black' && !state.game_over;
@@ -170,19 +265,23 @@ async function poll() {
     document.getElementById('blackIcon').className = 'player-icon black-icon' + (blackActive ? ' active' : '');
 
     const lastMove = state.moves && state.moves.length > 0 ? state.moves[state.moves.length - 1] : null;
-    renderBoard(state.fen, lastMove ? lastMove.uci : null);
+    const isNewMove = state.move_number !== prevMoveCount;
+
+    renderBoard(state.fen, lastMove ? lastMove.uci : null, isNewMove);
     renderMoves(state.moves);
 
     if (lastMove) {
       const player = lastMove.color === 'white' ? 'Gemini' : 'Claude';
-      const tag = lastMove.random ? ' (랜덤)' : '';
-      document.getElementById('lastMoveInfo').innerHTML = `<strong>${player}</strong>: ${lastMove.uci}${tag}`;
+      const emoji = lastMove.color === 'white' ? '⚪' : '⚫';
+      const tag = lastMove.random ? ' 🎲 랜덤' : '';
+      document.getElementById('lastMoveInfo').innerHTML = `${emoji} <strong>${player}</strong> → ${lastMove.uci}${tag}`;
       document.getElementById('comment').textContent = lastMove.comment || '';
     }
 
     if (state.thinking && !state.game_over) {
       const who = state.turn === 'white' ? 'Gemini' : 'Claude';
-      document.getElementById('comment').innerHTML = `<span class="thinking">💭 ${who} 생각 중... (시도 ${state.attempt || '?'}/3)</span>`;
+      const emoji = state.turn === 'white' ? '⚪' : '⚫';
+      document.getElementById('comment').innerHTML = `<span class="thinking">${emoji} ${who} 생각 중<span class="thinking-dots"></span> (시도 ${state.attempt || '?'}/3)</span>`;
     }
 
     if (state.game_over) {
@@ -191,15 +290,16 @@ async function poll() {
       el.textContent = state.result_detail || state.result || 'GAME OVER';
     }
 
+    prevFen = state.fen;
+    prevMoveCount = state.move_number;
+
   } catch(e) {
     document.getElementById('liveDot').className = 'live-dot off';
     document.getElementById('liveText').textContent = '대기 중 (state.json 없음)';
   }
 }
 
-// 초기 빈 보드
-renderBoard('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', null);
-
+renderBoard(INIT_FEN, null, false);
 setInterval(poll, 2000);
 poll();
 </script>
