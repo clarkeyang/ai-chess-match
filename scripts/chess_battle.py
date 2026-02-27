@@ -36,7 +36,7 @@ def ask_gemini(prompt):
     """Gemini API 호출 (google-generativeai SDK)"""
     try:
         import google.generativeai as genai
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt)
         return response.text.strip()
     except ImportError:
@@ -69,25 +69,18 @@ def extract_move(text):
 
 
 def print_board(board):
-    """유니코드 체스판을 터미널에 예쁘게 출력"""
-    print()
-    print("  ┌───┬───┬───┬───┬───┬───┬───┬───┐")
+    """컴팩트 유니코드 체스판 (9줄)"""
     for rank in range(7, -1, -1):
-        row = f"{rank + 1} │"
+        row = f" {rank + 1} "
         for file in range(8):
             square = chess.square(file, rank)
             piece = board.piece_at(square)
             if piece:
-                symbol = PIECE_SYMBOLS.get(piece.symbol(), piece.symbol())
+                row += PIECE_SYMBOLS.get(piece.symbol(), piece.symbol()) + " "
             else:
-                symbol = " "
-            row += f" {symbol} │"
+                row += "· "
         print(row)
-        if rank > 0:
-            print("  ├───┼───┼───┼───┼───┼───┼───┼───┤")
-    print("  └───┴───┴───┴───┴───┴───┴───┴───┘")
-    print("    a   b   c   d   e   f   g   h")
-    print()
+    print("   a b c d e f g h")
 
 
 def build_prompt(fen, turn_name, attempt, move_history):
@@ -127,27 +120,10 @@ def main():
     while not board.is_game_over():
         # 화면 클리어 후 전체 상태를 한 화면에 표시
         os.system("clear")
-        print("=" * 40)
-        print("   AI CHESS MATCH: Gemini vs Claude")
-        print("=" * 40)
+        print("Gemini(W) vs Claude(B) | 수: " + str(move_number))
         print_board(board)
-
-        # 기보 요약 (최근 10수)
-        if move_list:
-            recent = move_list[-10:]
-            start = max(0, len(move_list) - 10)
-            moves_str = ""
-            for i, m in enumerate(recent):
-                n = start + i + 1
-                if (start + i) % 2 == 0:
-                    moves_str += f" {(n+1)//2}.{m}"
-                else:
-                    moves_str += f" {m}"
-            print(f"  기보:{moves_str}")
-        print(f"  수: {move_number}  |  White: Gemini  |  Black: Claude")
         if last_move_info:
-            print(f"  직전: {last_move_info}")
-        print("-" * 40)
+            print(last_move_info)
 
         current_fen = board.fen()
         is_white = board.turn == chess.WHITE
