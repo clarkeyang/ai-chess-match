@@ -39,7 +39,9 @@
   .last-from { background: rgba(233,69,96,0.35) !important; }
   .last-to { background: rgba(233,69,96,0.5) !important; animation: move-flash 0.6s ease-out; }
   @keyframes move-flash { 0% { background: rgba(255,255,100,0.8) !important; } 100% {} }
-  .piece { filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.4)); transition: transform 0.3s ease, opacity 0.3s ease; }
+  .piece { transition: transform 0.3s ease, opacity 0.3s ease; }
+  .piece-white { color: #fff; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.6)); -webkit-text-stroke: 0.5px #888; }
+  .piece-black { color: #222; filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3)); }
   .piece-enter { animation: piece-drop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
   @keyframes piece-drop { 0% { transform: scale(0) rotate(-30deg); opacity: 0; } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
   .capture-effect { animation: capture-boom 0.5s ease-out; }
@@ -120,10 +122,13 @@
 </div>
 
 <script>
+// 같은 기물 모양, CSS로 흑백 구분
 const PIECES = {
   'R':'♜','N':'♞','B':'♝','Q':'♛','K':'♚','P':'♟',
-  'r':'♖','n':'♘','b':'♗','q':'♕','k':'♔','p':'♙'
+  'r':'♜','n':'♞','b':'♝','q':'♛','k':'♚','p':'♟'
 };
+const WHITE_PIECES = 'RNBQKP';
+const BLACK_PIECES = 'rnbqkp';
 const PIECE_VALUES = {'p':1,'n':3,'b':3,'r':5,'q':9,'k':0,'P':1,'N':3,'B':3,'R':5,'Q':9,'K':0};
 const FILES = 'abcdefgh';
 const INIT_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -151,13 +156,13 @@ function getCaptured(fen) {
   for (const c of boardPart) {
     if (c.match(/[pnbrqkPNBRQK]/)) curr[c] = (curr[c]||0) + 1;
   }
-  const capturedByWhite = []; // black pieces captured
-  const capturedByBlack = []; // white pieces captured
+  const capturedByWhite = []; // black pieces captured by white
+  const capturedByBlack = []; // white pieces captured by black
   for (const [p, count] of Object.entries(init)) {
     const diff = count - (curr[p]||0);
     for (let i = 0; i < diff; i++) {
-      if (p === p.toLowerCase()) capturedByWhite.push(PIECES[p]);
-      else capturedByBlack.push(PIECES[p]);
+      if (BLACK_PIECES.includes(p)) capturedByWhite.push(p);
+      else capturedByBlack.push(p);
     }
   }
   return { capturedByWhite, capturedByBlack };
@@ -165,8 +170,10 @@ function getCaptured(fen) {
 
 function renderCaptured(fen) {
   const { capturedByWhite, capturedByBlack } = getCaptured(fen);
-  document.getElementById('capturedWhite').textContent = capturedByWhite.join(' ');
-  document.getElementById('capturedBlack').textContent = capturedByBlack.join(' ');
+  const wEl = document.getElementById('capturedWhite');
+  const bEl = document.getElementById('capturedBlack');
+  wEl.innerHTML = capturedByWhite.map(p => `<span style="color:#222">${PIECES[p]}</span>`).join(' ');
+  bEl.innerHTML = capturedByBlack.map(p => `<span style="color:#fff;-webkit-text-stroke:0.5px #888">${PIECES[p]}</span>`).join(' ');
 }
 
 function isInCheck(fen) {
@@ -214,7 +221,8 @@ function renderBoard(fen, lastMoveUci, isNewMove) {
       const piece = board[rank][file];
       if (piece) {
         const p = document.createElement('span');
-        p.className = 'piece';
+        const colorClass = WHITE_PIECES.includes(piece) ? 'piece-white' : 'piece-black';
+        p.className = 'piece ' + colorClass;
         p.textContent = PIECES[piece] || piece;
         // 새 수에서 도착 칸의 기물 애니메이션
         if (isNewMove && sqName === toSq) {
