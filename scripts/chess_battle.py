@@ -122,9 +122,32 @@ def main():
     print("=" * 40)
 
     move_number = 0
+    last_move_info = ""  # 직전 수 정보
 
     while not board.is_game_over():
+        # 화면 클리어 후 전체 상태를 한 화면에 표시
+        os.system("clear")
+        print("=" * 40)
+        print("   AI CHESS MATCH: Gemini vs Claude")
+        print("=" * 40)
         print_board(board)
+
+        # 기보 요약 (최근 10수)
+        if move_list:
+            recent = move_list[-10:]
+            start = max(0, len(move_list) - 10)
+            moves_str = ""
+            for i, m in enumerate(recent):
+                n = start + i + 1
+                if (start + i) % 2 == 0:
+                    moves_str += f" {(n+1)//2}.{m}"
+                else:
+                    moves_str += f" {m}"
+            print(f"  기보:{moves_str}")
+        print(f"  수: {move_number}  |  White: Gemini  |  Black: Claude")
+        if last_move_info:
+            print(f"  직전: {last_move_info}")
+        print("-" * 40)
 
         current_fen = board.fen()
         is_white = board.turn == chess.WHITE
@@ -144,6 +167,7 @@ def main():
             # 응답 중 첫 줄만 간략 출력, 코멘트는 들여쓰기
             lines = response.strip().split("\n")
             print(f"  수: {lines[0]}")
+            comment = ""
             if len(lines) > 1:
                 comment = " ".join(lines[1:]).strip()
                 print(f"  이유: {comment[:100]}{'...' if len(comment) > 100 else ''}")
@@ -158,7 +182,11 @@ def main():
                         node = node.add_variation(move)
                         move_list.append(move_uci)
                         move_number += 1
-                        print(f"  >> {move_number}. {move_uci} (합법)")
+                        player = "Gemini" if is_white else "Claude"
+                        last_move_info = f"{player}: {move_uci}"
+                        if comment:
+                            last_move_info += f" ({comment[:60]})"
+                        print(f"  >> {move_number}. {move_uci}")
                         move_made = True
                         break
                     else:
@@ -176,7 +204,9 @@ def main():
             node = node.add_variation(random_move)
             move_list.append(random_move.uci())
             move_number += 1
-            print(f"  >> {move_number}. {random_move.uci()} (랜덤 - 3회 실패)")
+            player = "Gemini" if is_white else "Claude"
+            last_move_info = f"{player}: {random_move.uci()} (랜덤 - 3회 실패)"
+            print(f"  >> {move_number}. {random_move.uci()} (랜덤)")
 
     # 게임 종료
     result = board.result()
