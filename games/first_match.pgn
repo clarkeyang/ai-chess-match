@@ -1,0 +1,10 @@
+
+[Event "AI Chess Battle: Gemini vs Claude (Trial)"]
+[Site "Local Server"]
+[Date "2026.02.27"]
+[Round "0"]
+[White "Gemini"]
+[Black "Claude"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O b5 6. Bb3 Be7 7. d3 O-O 8. c3 Na5 9. Nxe5 d6 10. Nxf7 Qe8 11. Nxd6 Nxb3 12. Nxe8 Nxa1 *
