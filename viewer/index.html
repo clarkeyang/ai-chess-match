@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>AI Chess Match: Gemini vs Claude</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #eee; font-family: -apple-system, system-ui, sans-serif; display: flex; justify-content: center; padding: 20px; min-height: 100vh; }
+  .container { max-width: 720px; width: 100%; }
+  h1 { text-align: center; font-size: 1.4em; margin-bottom: 4px; color: #e94560; }
+  .subtitle { text-align: center; font-size: 0.85em; color: #888; margin-bottom: 16px; }
+  .status-bar { display: flex; justify-content: space-between; align-items: center; background: #16213e; border-radius: 8px; padding: 10px 16px; margin-bottom: 12px; }
+  .player { display: flex; align-items: center; gap: 8px; }
+  .player-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2em; }
+  .white-icon { background: #f0f0f0; color: #333; }
+  .black-icon { background: #333; color: #f0f0f0; }
+  .player-name { font-weight: 600; font-size: 0.95em; }
+  .player-label { font-size: 0.75em; color: #888; }
+  .active { box-shadow: 0 0 12px #e94560; }
+  .move-count { background: #e94560; color: white; border-radius: 20px; padding: 4px 14px; font-weight: 700; font-size: 0.9em; }
+  .board-wrap { display: flex; justify-content: center; margin-bottom: 12px; }
+  .board { display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: 480px; aspect-ratio: 1; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+  .square { display: flex; align-items: center; justify-content: center; font-size: min(6vw, 48px); cursor: default; position: relative; }
+  .light { background: #f0d9b5; }
+  .dark { background: #b58863; }
+  .last-move { box-shadow: inset 0 0 0 3px #e94560aa; }
+  .piece { filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3)); }
+  .rank-label { position: absolute; top: 2px; left: 4px; font-size: 10px; color: #999; font-weight: 600; }
+  .file-label { position: absolute; bottom: 1px; right: 4px; font-size: 10px; color: #999; font-weight: 600; }
+  .info-panel { background: #16213e; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
+  .last-move-info { font-size: 0.9em; margin-bottom: 6px; }
+  .last-move-info strong { color: #e94560; }
+  .comment { font-size: 0.85em; color: #aaa; font-style: italic; }
+  .moves-log { background: #0f3460; border-radius: 8px; padding: 12px 16px; max-height: 180px; overflow-y: auto; font-family: 'SF Mono', monospace; font-size: 0.82em; line-height: 1.8; }
+  .moves-log .move-num { color: #888; }
+  .moves-log .white-move { color: #f0d9b5; }
+  .moves-log .black-move { color: #90caf9; }
+  .moves-log .random-move { color: #e94560; }
+  .game-over { text-align: center; background: #e94560; border-radius: 8px; padding: 16px; font-size: 1.2em; font-weight: 700; margin-bottom: 12px; }
+  .live-dot { display: inline-block; width: 8px; height: 8px; background: #4caf50; border-radius: 50%; margin-right: 6px; animation: pulse 1.5s infinite; }
+  .live-dot.off { background: #666; animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .thinking { color: #ffd700; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>♟ AI Chess Match</h1>
+  <p class="subtitle"><span class="live-dot" id="liveDot"></span><span id="liveText">연결 중...</span></p>
+
+  <div class="status-bar">
+    <div class="player">
+      <div class="player-icon white-icon" id="whiteIcon">♙</div>
+      <div><div class="player-name">Gemini</div><div class="player-label">White</div></div>
+    </div>
+    <div class="move-count" id="moveCount">0수</div>
+    <div class="player">
+      <div><div class="player-name" style="text-align:right">Claude</div><div class="player-label" style="text-align:right">Black</div></div>
+      <div class="player-icon black-icon" id="blackIcon">♟</div>
+    </div>
+  </div>
+
+  <div class="board-wrap"><div class="board" id="board"></div></div>
+
+  <div class="info-panel" id="infoPanel">
+    <div class="last-move-info" id="lastMoveInfo">대국 시작 대기 중...</div>
+    <div class="comment" id="comment"></div>
+  </div>
+
+  <div id="gameOver" class="game-over" style="display:none"></div>
+
+  <div class="moves-log" id="movesLog">기보가 여기에 표시됩니다.</div>
+</div>
+
+<script>
+const PIECES = {
+  'R':'♜','N':'♞','B':'♝','Q':'♛','K':'♚','P':'♟',
+  'r':'♖','n':'♘','b':'♗','q':'♕','k':'♔','p':'♙'
+};
+const FILES = 'abcdefgh';
+let prevState = null;
+
+function parseFEN(fen) {
+  const rows = fen.split(' ')[0].split('/');
+  const board = [];
+  for (const row of rows) {
+    const r = [];
+    for (const c of row) {
+      if (c >= '1' && c <= '8') for (let i = 0; i < parseInt(c); i++) r.push(null);
+      else r.push(c);
+    }
+    board.push(r);
+  }
+  return board;
+}
+
+function renderBoard(fen, lastMoveUci) {
+  const board = parseFEN(fen);
+  const el = document.getElementById('board');
+  el.innerHTML = '';
+
+  let fromSq = null, toSq = null;
+  if (lastMoveUci && lastMoveUci.length >= 4) {
+    fromSq = lastMoveUci[0] + lastMoveUci[1];
+    toSq = lastMoveUci[2] + lastMoveUci[3];
+  }
+
+  for (let rank = 0; rank < 8; rank++) {
+    for (let file = 0; file < 8; file++) {
+      const sq = document.createElement('div');
+      const isLight = (rank + file) % 2 === 0;
+      sq.className = 'square ' + (isLight ? 'light' : 'dark');
+
+      const sqName = FILES[file] + (8 - rank);
+      if (sqName === fromSq || sqName === toSq) sq.classList.add('last-move');
+
+      if (file === 0) {
+        const rl = document.createElement('span');
+        rl.className = 'rank-label';
+        rl.textContent = 8 - rank;
+        sq.appendChild(rl);
+      }
+      if (rank === 7) {
+        const fl = document.createElement('span');
+        fl.className = 'file-label';
+        fl.textContent = FILES[file];
+        sq.appendChild(fl);
+      }
+
+      const piece = board[rank][file];
+      if (piece) {
+        const p = document.createElement('span');
+        p.className = 'piece';
+        p.textContent = PIECES[piece] || piece;
+        sq.appendChild(p);
+      }
+      el.appendChild(sq);
+    }
+  }
+}
+
+function renderMoves(moves) {
+  const el = document.getElementById('movesLog');
+  if (!moves || moves.length === 0) { el.innerHTML = '기보가 여기에 표시됩니다.'; return; }
+  let html = '';
+  for (let i = 0; i < moves.length; i++) {
+    const m = moves[i];
+    if (i % 2 === 0) html += `<span class="move-num">${Math.floor(i/2)+1}.</span> `;
+    const cls = m.random ? 'random-move' : (i % 2 === 0 ? 'white-move' : 'black-move');
+    html += `<span class="${cls}">${m.uci}</span> `;
+  }
+  el.innerHTML = html;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function poll() {
+  try {
+    const res = await fetch('/state.json?' + Date.now());
+    if (!res.ok) throw new Error('not found');
+    const state = await res.json();
+
+    document.getElementById('liveDot').className = 'live-dot';
+    document.getElementById('liveText').textContent = state.game_over ? '대국 종료' : '실시간 관전 중';
+
+    document.getElementById('moveCount').textContent = state.move_number + '수';
+
+    const whiteActive = state.turn === 'white' && !state.game_over;
+    const blackActive = state.turn === 'black' && !state.game_over;
+    document.getElementById('whiteIcon').className = 'player-icon white-icon' + (whiteActive ? ' active' : '');
+    document.getElementById('blackIcon').className = 'player-icon black-icon' + (blackActive ? ' active' : '');
+
+    const lastMove = state.moves && state.moves.length > 0 ? state.moves[state.moves.length - 1] : null;
+    renderBoard(state.fen, lastMove ? lastMove.uci : null);
+    renderMoves(state.moves);
+
+    if (lastMove) {
+      const player = lastMove.color === 'white' ? 'Gemini' : 'Claude';
+      const tag = lastMove.random ? ' (랜덤)' : '';
+      document.getElementById('lastMoveInfo').innerHTML = `<strong>${player}</strong>: ${lastMove.uci}${tag}`;
+      document.getElementById('comment').textContent = lastMove.comment || '';
+    }
+
+    if (state.thinking && !state.game_over) {
+      const who = state.turn === 'white' ? 'Gemini' : 'Claude';
+      document.getElementById('comment').innerHTML = `<span class="thinking">💭 ${who} 생각 중... (시도 ${state.attempt || '?'}/3)</span>`;
+    }
+
+    if (state.game_over) {
+      const el = document.getElementById('gameOver');
+      el.style.display = 'block';
+      el.textContent = state.result_detail || state.result || 'GAME OVER';
+    }
+
+  } catch(e) {
+    document.getElementById('liveDot').className = 'live-dot off';
+    document.getElementById('liveText').textContent = '대기 중 (state.json 없음)';
+  }
+}
+
+// 초기 빈 보드
+renderBoard('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', null);
+
+setInterval(poll, 2000);
+poll();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+[Event "AI Chess Battle: Gemini vs Claude (Game 1)"]
+[Site "Mac Mini HomeServer"]
+[Date "2026.02.28"]
+[Round "1"]
+[White "Gemini"]
+[Black "Claude (Opus)"]
+[Result "0-1"]
+
+1. d4 d5 2. f3 e5 3. a4 exd4 4. Nc3 dxc3 5. g4 Qh4# 0-1

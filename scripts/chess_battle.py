@@ -6,10 +6,13 @@ import datetime
 import random
 import os
 import sys
+import json
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 GAMES_DIR = os.path.join(PROJECT_DIR, "games")
+VIEWER_DIR = os.path.join(PROJECT_DIR, "viewer")
+STATE_FILE = os.path.join(VIEWER_DIR, "state.json")
 
 # 유니코드 체스 기물 매핑
 PIECE_SYMBOLS = {
@@ -83,6 +86,24 @@ def print_board(board):
     print("   a b c d e f g h")
 
 
+def save_state(board, move_number, moves_data, game_over=False, result=None, result_detail=None, thinking=False, attempt=None):
+    """웹 뷰어용 상태 JSON 저장"""
+    state = {
+        "fen": board.fen(),
+        "turn": "white" if board.turn == chess.WHITE else "black",
+        "move_number": move_number,
+        "moves": moves_data,
+        "game_over": game_over,
+        "result": result,
+        "result_detail": result_detail,
+        "thinking": thinking,
+        "attempt": attempt,
+        "updated": datetime.datetime.now().isoformat(),
+    }
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+
+
 def build_prompt(fen, turn_name, attempt, move_history):
     """대국용 프롬프트 생성"""
     return f"""You are playing chess as {turn_name}.
@@ -108,6 +129,7 @@ def main():
 
     node = game
     move_list = []
+    moves_data = []  # 웹 뷰어용 수 데이터
 
     print("\n" + "=" * 40)
     print("   AI CHESS MATCH: Gemini vs Claude")
@@ -116,6 +138,7 @@ def main():
 
     move_number = 0
     last_move_info = ""  # 직전 수 정보
+    save_state(board, move_number, moves_data)
 
     while not board.is_game_over():
         # 화면 클리어 후 전체 상태를 한 화면에 표시
@@ -135,6 +158,7 @@ def main():
             prompt = build_prompt(current_fen, turn_name, attempt, move_history)
 
             print(f"> {turn_name} 생각 중... (시도 {attempt}/3)")
+            save_state(board, move_number, moves_data, thinking=True, attempt=attempt)
             if is_white:
                 response = ask_gemini(prompt)
             else:
@@ -162,6 +186,8 @@ def main():
                         last_move_info = f"{player}: {move_uci}"
                         if comment:
                             last_move_info += f" ({comment[:60]})"
+                        moves_data.append({"uci": move_uci, "color": "white" if is_white else "black", "comment": comment[:100], "random": False})
+                        save_state(board, move_number, moves_data)
                         print(f"  >> {move_number}. {move_uci}")
                         move_made = True
                         break
@@ -182,26 +208,31 @@ def main():
             move_number += 1
             player = "Gemini" if is_white else "Claude"
             last_move_info = f"{player}: {random_move.uci()} (랜덤 - 3회 실패)"
+            moves_data.append({"uci": random_move.uci(), "color": "white" if is_white else "black", "comment": "3회 실패로 랜덤 수", "random": True})
+            save_state(board, move_number, moves_data)
             print(f"  >> {move_number}. {random_move.uci()} (랜덤)")
 
     # 게임 종료
     result = board.result()
     game.headers["Result"] = result
 
+    result_detail = f"결과: {result}"
+    if board.is_checkmate():
+        winner = "Claude (Black)" if board.turn == chess.WHITE else "Gemini (White)"
+        result_detail = f"{winner} 승리! (체크메이트, {move_number}수)"
+    elif board.is_stalemate():
+        result_detail = f"스테일메이트 (무승부, {move_number}수)"
+    elif board.is_insufficient_material():
+        result_detail = f"기물 부족 (무승부, {move_number}수)"
+    elif board.is_fifty_moves():
+        result_detail = f"50수 규칙 (무승부, {move_number}수)"
+
+    save_state(board, move_number, moves_data, game_over=True, result=result, result_detail=result_detail)
+
     print_board(board)
     print("=" * 40)
     print("  GAME OVER")
-    print(f"  결과: {result}")
-    if board.is_checkmate():
-        winner = "Claude (Black)" if board.turn == chess.WHITE else "Gemini (White)"
-        print(f"  승자: {winner} (체크메이트)")
-    elif board.is_stalemate():
-        print("  스테일메이트 (무승부)")
-    elif board.is_insufficient_material():
-        print("  기물 부족 (무승부)")
-    elif board.is_fifty_moves():
-        print("  50수 규칙 (무승부)")
-    print(f"  총 {move_number}수")
+    print(f"  {result_detail}")
     print("=" * 40)
 
     # PGN 저장
